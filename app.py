@@ -1,48 +1,52 @@
 import streamlit as st
 import torch
-import os
 from unsloth import FastLanguageModel
 from transformers import TextStreamer, TextIteratorStreamer
 import threading
 import base64
 
-
 # =========================
 #   Sidebar Controls
 # =========================
 st.sidebar.header("Model Settings")
-model_name = st.sidebar.text_input("Model Name", value="qwen3_lora_model")
-max_new_tokens = st.sidebar.number_input("Max New Tokens", min_value=1, max_value=4096, value=2048)
-thinking_mode = st.sidebar.toggle("Enable Thinking Mode", value=True)
+
+# CHANGE THIS to your Hugging Face Username/ModelRepo
+default_model = "Ashish-kharde1/Qwen3-Micro-Reasoner" 
+
+model_name = st.sidebar.text_input("Model Name (Hugging Face Path)", value=default_model)
+max_new_tokens = st.sidebar.number_input("Max New Tokens", min_value=1, max_value=4096, value=1024)
+thinking_mode = st.sidebar.toggle("Enable Thinking Mode (<think>)", value=True)
 
 # =========================
 #   Model Loading
 # =========================
-@st.cache_resource(show_spinner=True)
-def load_model_and_tokenizer(model_name):
+@st.cache_resource(show_spinner="Downloading Model from Hugging Face...")
+def load_model_and_tokenizer(name):
+    # This automatically downloads Base Model + Adapters
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_name,
-        max_seq_length=2048,
-        load_in_4bit=True,
+        model_name = name,
+        max_seq_length = 2048,
+        dtype = None,
+        load_in_4bit = True,
     )
+    FastLanguageModel.for_inference(model) # Enable native 2x faster inference
     return model, tokenizer
 
-model, tokenizer = load_model_and_tokenizer(model_name)
+try:
+    model, tokenizer = load_model_and_tokenizer(model_name)
+except Exception as e:
+    st.error(f"Error loading model: {e}")
+    st.stop()
 
 # =========================
-#   Chat State
-# =========================
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# =========================
-#   Main Chat Interface
+#   Chat Interface
 # =========================
 st.title("🧠 Qwen3 Micro-Reasoner")
 st.caption(f"Loaded from: {model_name}")
 
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "I am ready. Ask me a math problem!"}]
 
-# Render chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -50,46 +54,45 @@ for message in st.session_state.messages:
 prompt = st.chat_input("Ask a question...")
 
 if prompt:
-    # Add user message to history
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Prepare messages for model
-    messages = st.session_state.messages[-10:]  # last 10 for context
-    # Only keep role/content
-    chat_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
+    # Tokenize with thinking parameter
+    # We apply the template but keep it as tensors on GPU
+    inputs = tokenizer.apply_chat_template(
+        st.session_state.messages,
+        tokenize = True,
+        add_generation_prompt = True,
+        return_tensors = "pt",
+        enable_thinking = thinking_mode,
+    ).to("cuda")
 
-    # Tokenize with/without thinking
-    text = tokenizer.apply_chat_template(
-        chat_messages,
-        tokenize=False,
-        add_generation_prompt=True,
-        enable_thinking=thinking_mode,
-    )
-
-    # Stream output
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
-
-        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True)
-        inputs = tokenizer(text, return_tensors="pt").to(model.device)
-
-        # Run generation in a separate thread
+        
+        # Streamer setup
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, decode_kwargs={"errors": "ignore"})
+        
+        # Generation arguments
         generation_kwargs = dict(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=0.7, top_p=0.8, top_k=20,
-            streamer=streamer,
+            input_ids = inputs,
+            streamer = streamer,
+            max_new_tokens = max_new_tokens,
+            use_cache = True,
+            temperature = 0.8,
         )
+        
+        # Threading for streaming
         thread = threading.Thread(target=model.generate, kwargs=generation_kwargs)
         thread.start()
 
-        # Stream output as it is generated
+        # Render stream
         for new_text in streamer:
             full_response += new_text
             message_placeholder.markdown(full_response + "▌")
-
+            
         message_placeholder.markdown(full_response)
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+    
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
