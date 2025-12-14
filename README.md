@@ -1,135 +1,172 @@
-# 🧠 Qwen3 Micro-Reasoner
+# 🚀 Micro-Reasoner-Qwen
 
-> **Lightweight LLM with Thinking Mode • Hybrid Fine-Tuning • Streamlit Chat UI**
+> **Lightweight reasoning-capable LLM built on Qwen3-4B using efficient LoRA fine-tuning**
 
-[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Ashish--kharde1%2FQwen3--Micro--Reasoner-orange)](https://huggingface.co/Ashish-kharde1/Qwen3-Micro-Reasoner)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Ashish-kharde1/Micro-Reasoner-Qwen/blob/main/notebooks/qwen3_finetune.ipynb)
-[![Powered by Unsloth](https://img.shields.io/badge/⚡%20Unsloth-High%20Efficiency-green)](https://github.com/unslothai/unsloth)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Micro-Reasoner-Qwen** is a compact reasoning-enhanced language model based on **Qwen3-4B**. It is fine-tuned to explicitly generate *chain-of-thought (CoT) reasoning* before producing a final answer, enabling improved multi-step reasoning while remaining lightweight and fast.
 
-## 📌 Overview
-
-**Qwen3 Micro-Reasoner** is a 4B parameter model designed to bring "Chain-of-Thought" (CoT) reasoning capabilities to consumer hardware. 
-
-Standard small models often struggle with complex logic. By fine-tuning **Qwen3-4B** on a mix of explicit reasoning data and high-quality instruction sets, this model learns to **"think before it speaks."** It generates an internal monologue wrapped in `<think>` tags to verify its logic before producing a final answer.
+This project focuses on **practical reasoning**, **low-resource inference**, and **developer-friendly experimentation**.
 
 ---
 
-## 🤖 What Does This Model Do?
+## 🖼️ Demo
 
-This model mimics the behavior of larger reasoning models (like o1 or R1) by splitting generation into two phases:
+The screenshot below shows the Streamlit chat UI with reasoning (`<think>`) and the final answer output.
 
-1.  **The Thinking Phase:**
-    The model analyzes the prompt, breaks it down into steps, and checks for errors. This is visible in the internal logs (or via the UI toggle) as:
-    ```xml
-    <think>
-    To solve x^2 + 5x + 6 = 0, I should look for factors of 6 that add up to 5.
-    Factors of 6 are 1, 6 and 2, 3.
-    2 + 3 = 5. So the factors are (x+2) and (x+3).
-    </think>
-    ```
-
-2.  **The Response Phase:**
-    Based on the thought process, it outputs the clean, final answer:
-    > The solutions are x = -2 and x = -3.
+![Chat UI Screenshot](/assets/ui-demo.png)
 
 ---
 
-## 📚 Training Data & Strategy
+## ⚡ Quick Start (5 Minutes)
 
-To balance **deep reasoning** with **general conversational fluency**, this model was trained using a hybrid dataset strategy:
-
-### 1. The Reasoning Core (Logic)
-*   **Dataset:** [unsloth/OpenMathReasoning-mini](https://huggingface.co/datasets/unsloth/OpenMathReasoning-mini) (`split="cot"`)
-*   **Purpose:** Provides examples containing the `<think>` ... `</think>` structure. This teaches the model *how* to reason step-by-step.
-
-### 2. The Generalist Core (Chat)
-*   **Dataset:** [mlabonne/FineTome-100k](https://huggingface.co/datasets/mlabonne/FineTome-100k)
-*   **Purpose:** High-quality instruction-following data.
-*   **Strategy:** A subset of this dataset was mixed in (approx. 25% ratio) to prevent the model from losing its ability to hold normal conversations or handle non-math queries.
-
----
-
-## 🏗️ Project Features
-
-### ✔️ 1. Efficient Fine-Tuning
-*   **Base Model:** `unsloth/Qwen3-4b` (4-bit quantized).
-*   **Platform:** Trained entirely on **Google Colab** (T4 GPU).
-*   **Optimization:** Uses **Unsloth** for 2x faster training and 60% lower memory usage compared to standard Hugging Face implementations.
-
-### ✔️ 2. Streamlit Chat UI (`app.py`)
-*   **Real-time Streaming:** Token-by-token generation.
-*   **Thinking Mode Toggle:** A sidebar control to show/hide the raw `<think>` blocks.
-*   **Context Memory:** Remembers previous turns in the conversation.
-
-### ✔️ 3. Easy Deployment
-*   Fully compatible with `transformers` and `peft`.
-*   Can be loaded in 4-bit mode on consumer GPUs (approx. 4GB VRAM required).
-
----
-
-## ⚙️ Installation & Usage
-
-### 1. Clone & Install
 ```bash
+# Clone the repository
 git clone https://github.com/Ashish-kharde1/Micro-Reasoner-Qwen.git
 cd Micro-Reasoner-Qwen
 
-# Install dependencies (Unsloth required for 4-bit inference)
-pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
-pip install --no-deps "xformers<0.0.27" "trl<0.9.0" peft accelerate bitsandbytes streamlit
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+streamlit run app.py
 ```
 
-### 2. Run the Chat App
+---
+
+## 📌 Key Features
+
+*   **🧠 Explicit Reasoning (CoT):** The model generates reasoning wrapped in `<think>...</think>` tags before providing the final answer.
+*   **⚡ Efficient 4-bit Inference:** Runs comfortably on consumer GPUs using Unsloth + bitsandbytes.
+*   **🔧 LoRA Fine-Tuning:** Parameter-efficient training with minimal memory overhead.
+*   **💬 Interactive Chat UI:** A Streamlit-based interface featuring conversation memory and token streaming.
+
+---
+
+## 🧠 How It Works
+
+### Base Model
+Built on **Qwen3-4B** for strong instruction-following capabilities and multilingual support.
+
+### Hybrid Training
+Fine-tuned using a specific mix of data:
+1.  **Reasoning datasets:** Math, logic puzzles, and step-by-step explanations.
+2.  **General instruction-following data:** To maintain conversational fluency.
+
+### Reasoning Output
+The model explicitly emits reasoning tokens before the final response.
+
+> **⚠️ Important:** The `<think>` reasoning is explicit generated text, not hidden internal latent states.
+
+---
+
+## 💻 Hardware Requirements
+
+| Component | Requirement |
+| :--- | :--- |
+| **GPU** | Minimum **6 GB VRAM** (4-bit quantization) |
+| **Recommended** | 8–12 GB VRAM |
+| **CPU-only** | ❌ Not supported |
+| **RAM** | ≥ 16 GB |
+
+---
+
+## ▶️ Running the Chat Application
+
+To start the interactive interface:
+
 ```bash
 streamlit run app.py
 ```
+
+**UI Features:**
+*   Token-streaming responses for real-time feedback.
+*   Context-aware conversation history.
+*   Toggleable display for the reasoning process.
+
 ---
 
-## 📂 Repository Structure
+## 📁 Repository Structure
 
 ```text
 Micro-Reasoner-Qwen/
 ├── notebooks/
-│   ├── qwen3_finetune.ipynb
-    └── fix_widgets.py
+│   ├── qwen3_finetune.ipynb     # Training notebook
+│   └── fix_widgets.py           # Colab widget fix
 ├── qwen3_lora_model/
-│   ├── added_tokens.json
-│   ├── adapter_config.json
 │   ├── adapter_model.safetensors
+│   ├── adapter_config.json
 │   └── chat_template.jinja
-├── .gitattributes
-├── .gitignore
+├── app.py                       # Streamlit chat app
+├── requirements.txt             # Python dependencies
 ├── LICENSE
-├── README.md
-└── app.py
-
+└── README.md
 ```
 
 ---
 
-## 🧉 Training Details
+## 🧪 Training Details
 
-The full training process is documented in `notebooks/qwen3_finetune.ipynb`.
+The training process is documented in `notebooks/qwen3_finetune.ipynb`.
 
-*   **LoRA Rank (r):** 16
-*   **LoRA Alpha:** 32
-*   **Target Modules:** `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj`
-*   **Learning Rate:** 2e-4
-*   **Optimizer:** AdamW 8-bit
+**LoRA Configuration (Typical):**
+
+| Parameter | Value |
+| :--- | :--- |
+| **Base Model** | unsloth/Qwen3-4b |
+| **LoRA Rank** | 16 |
+| **LoRA Alpha** | 32 |
+| **Target Modules** | `q_proj`, `k_proj`, `v_proj`, `o_proj` |
+| **Optimizer** | AdamW (8-bit) |
+| **Learning Rate** | 2e-4 |
+
+*This setup is designed to balance deep reasoning ability with conversational fluency.*
 
 ---
 
-## 🙌 Acknowledgments
+## ⚠️ Limitations
 
-*   **Unsloth AI** for the incredible optimization tools.
-*   **Maxime Labonne** for the `FineTome-100k` dataset.
-*   **Alibaba Cloud** for the Qwen3 architecture.
+*   Not a replacement for large-scale reasoning models (e.g., o1, DeepSeek-R1).
+*   Reasoning quality is dependent on prompt structure.
+*   No formal benchmark results included yet.
+*   Long-context reasoning may degrade beyond ~4k tokens.
+
+---
+
+## 📦 Dependencies
+
+Key libraries used in this project:
+*   `unsloth`
+*   `peft`
+*   `accelerate`
+*   `bitsandbytes`
+*   `streamlit`
+
+*Refer to `requirements.txt` for exact version numbers.*
+
+---
+
+## 🧠 Credits & Acknowledgements
+
+*   **Unsloth AI** — For efficient 4-bit training & inference tools.
+*   **Qwen Team (Alibaba Cloud)** — For the powerful base model architecture.
+*   **Maxime Labonne** — For the FineTome-100k reasoning dataset.
+
+---
+
+## 📝 License
+
+Distributed under the **MIT License**.
 
 ---
 
 ## 📬 Contact
 
-**Author:** Ashish Kharde  
-*   **Hugging Face:** [Ashish-kharde1](https://huggingface.co/Ashish-kharde1)  
-*   **GitHub:** [Ashish-kharde1](https://github.com/Ashish-kharde1)
+**Author:** Ashish Kharde
+
+*   **GitHub:** [https://github.com/Ashish-kharde1](https://github.com/Ashish-kharde1)
+*   **Hugging Face:** [https://huggingface.co/Ashish-kharde1](https://huggingface.co/Ashish-kharde1)
+
+---
+
+## ⭐ Contributing
+
+Contributions, issues, and PRs are welcome! Feel free to propose improvements, benchmarks, or UI enhancements.
